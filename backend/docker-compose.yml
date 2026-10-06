@@ -37,7 +37,7 @@ services:
         # Không bắt buộc: khi dùng RDS, service db bị tắt.
         required: false
 
-# Network chung để frontend (compose riêng) gọi được backend:8000.
+# Network chung với frontend (compose riêng), ai chạy trước thì tạo.
 networks:
   default:
     name: todo_net
