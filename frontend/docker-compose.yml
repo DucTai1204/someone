@@ -4,7 +4,6 @@
 # nginx proxy /api sang BACKEND_URL trong .env (mặc định backend:8000).
 services:
   frontend:
-    # VITE_API_URL đọc từ .env lúc build.
     build: .
     container_name: todo_frontend
     restart: unless-stopped
