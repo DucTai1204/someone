@@ -1,0 +1,16 @@
+# Chạy riêng frontend (trong thư mục frontend/):
+#   docker compose up -d --build
+# Cần chạy backend trước (tạo network todo_net), nginx proxy /api sang backend:8000.
+services:
+  frontend:
+    # VITE_API_URL đọc từ .env lúc build.
+    build: .
+    container_name: todo_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+
+networks:
+  default:
+    name: todo_net
+    external: true

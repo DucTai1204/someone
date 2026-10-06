@@ -1,48 +1,14 @@
+# Chạy cả backend + frontend từ thư mục root:
+#   docker compose up -d --build
+#   docker compose --profile local up -d --build   (kèm MySQL container)
+# Muốn chạy riêng từng phần: vào backend/ hoặc frontend/ rồi `docker compose up -d --build`.
+include:
+  - backend/docker-compose.yml
+
 services:
-  db:
-    # Chỉ chạy khi dùng DB local: docker compose --profile local up -d
-    profiles: ["local"]
-    image: mysql:8.0
-    container_name: todo_mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: todo_db
-      MYSQL_USER: todo_user
-      MYSQL_PASSWORD: todo_pass
-    ports:
-      - "3308:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
-  backend:
-    build: ./backend
-    container_name: todo_backend
-    restart: unless-stopped
-    env_file: ./backend/.env
-    ports:
-      - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-        # Không bắt buộc: khi dùng RDS, service db bị tắt.
-        required: false
-
   frontend:
-    # VITE_API_URL đọc từ frontend/.env lúc build.
-    build: ./frontend
-    container_name: todo_frontend
-    restart: unless-stopped
-    ports:
-      - "3000:80"
+    extends:
+      file: frontend/docker-compose.yml
+      service: frontend
     depends_on:
       - backend
-
-volumes:
-  mysql_data:
