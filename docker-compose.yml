@@ -1,5 +1,7 @@
 services:
   db:
+    # Chỉ chạy khi COMPOSE_PROFILES=local (xem .env).
+    profiles: ["local"]
     image: mysql:8.0
     container_name: todo_mysql
     restart: unless-stopped
@@ -9,7 +11,7 @@ services:
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "${DB_PORT_HOST}:3306"
+      - "${DB_PORT_HOST:-3308}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -24,8 +26,9 @@ services:
     container_name: todo_backend
     restart: unless-stopped
     environment:
-      DB_HOST: db
-      DB_PORT: "3306"
+      # Local: DB_HOST_DOCKER=db. RDS: bỏ DB_HOST_DOCKER, dùng DB_HOST.
+      DB_HOST: ${DB_HOST_DOCKER:-${DB_HOST}}
+      DB_PORT: ${DB_PORT_DOCKER:-${DB_PORT}}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
@@ -34,6 +37,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+        # Không bắt buộc: khi dùng RDS, service db bị tắt.
+        required: false
 
   frontend:
     build:
