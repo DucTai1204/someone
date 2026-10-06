@@ -11,9 +11,9 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String, create_engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-# Dùng chung file .env ở thư mục root với frontend.
-# Không ghi đè biến đã có sẵn (vd. biến do docker-compose truyền vào).
-load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env"))
+# Đọc backend/.env khi chạy `python main.py`.
+# Không ghi đè biến đã có sẵn (vd. biến do docker-compose truyền vào qua env_file).
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 DB_USER = os.getenv("DB_USER", "root")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "123456")

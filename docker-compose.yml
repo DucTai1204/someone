@@ -1,22 +1,22 @@
 services:
   db:
-    # Chỉ chạy khi COMPOSE_PROFILES=local (xem .env).
+    # Chỉ chạy khi dùng DB local: docker compose --profile local up -d
     profiles: ["local"]
     image: mysql:8.0
     container_name: todo_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: todo_db
+      MYSQL_USER: todo_user
+      MYSQL_PASSWORD: todo_pass
     ports:
-      - "${DB_PORT_HOST:-3308}:3306"
+      - "3308:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -25,13 +25,7 @@ services:
     build: ./backend
     container_name: todo_backend
     restart: unless-stopped
-    environment:
-      # Local: DB_HOST_DOCKER=db. RDS: bỏ DB_HOST_DOCKER, dùng DB_HOST.
-      DB_HOST: ${DB_HOST_DOCKER:-${DB_HOST}}
-      DB_PORT: ${DB_PORT_DOCKER:-${DB_PORT}}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
+    env_file: ./backend/.env
     ports:
       - "8000:8000"
     depends_on:
@@ -41,10 +35,8 @@ services:
         required: false
 
   frontend:
-    build:
-      context: ./frontend
-      args:
-        VITE_API_URL: ${VITE_API_URL:-/api}
+    # VITE_API_URL đọc từ frontend/.env lúc build.
+    build: ./frontend
     container_name: todo_frontend
     restart: unless-stopped
     ports:
