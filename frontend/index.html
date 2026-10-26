@@ -24,6 +24,10 @@
       <p id="empty" hidden>Chưa có việc nào.</p>
     </main>
 
+    <script>
+      // Mở bằng Live Server (cổng 5500): không có nginx proxy, gọi thẳng backend `python main.py`.
+      if (location.port === "5500") window.API_URL = "http://127.0.0.1:8000/api";
+    </script>
     <script src="app.js"></script>
   </body>
 </html>
