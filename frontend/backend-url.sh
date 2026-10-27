@@ -21,10 +21,10 @@ port=""
 # 127.0.0.1/localhost trong container là chính container nginx, nên đổi sang máy host.
 case "$host" in
   127.0.0.1|localhost|0.0.0.0)
-    host="host.docker.internal"
-    # Docker DNS không trả host.docker.internal trên Linux (dùng extra_hosts), nên lấy luôn IP.
+    # Chỉ đổi khi tồn tại host.docker.internal (Docker Desktop / extra_hosts) và lấy luôn IP.
+    # Trên ECS (cùng task) không có tên này: giữ 127.0.0.1 vì backend chạy chung network với nginx.
     ip="$(getent hosts host.docker.internal | awk '{print $1; exit}')"
-    [ -n "$ip" ] && host="$ip"
+    if [ -n "$ip" ]; then host="$ip"; else host="127.0.0.1"; fi
     ;;
 esac
 
@@ -32,8 +32,14 @@ esac
 BACKEND_URL="$scheme://$host:$port"
 export BACKEND_URL
 
-envsubst '${BACKEND_URL}' < /etc/nginx/backend.conf.template > /etc/nginx/conf.d/default.conf
-echo "frontend: /api -> $BACKEND_URL (BACKEND_URL trong .env: $raw)"
+# DNS server của môi trường đang chạy (Docker: 127.0.0.11, ECS/Fargate: DNS của VPC).
+RESOLVER="$(awk '/^nameserver/{print $2; exit}' /etc/resolv.conf)"
+[ -z "$RESOLVER" ] && RESOLVER=127.0.0.11
+case "$RESOLVER" in *:*) RESOLVER="[$RESOLVER]" ;; esac   # IPv6 cần ngoặc vuông
+export RESOLVER
+
+envsubst '${BACKEND_URL} ${RESOLVER}' < /etc/nginx/backend.conf.template > /etc/nginx/conf.d/default.conf
+echo "frontend: /api -> $BACKEND_URL (BACKEND_URL trong .env: $raw), DNS: $RESOLVER"
 
 # Chỉ kiểm tra để báo trong log, không chặn khởi động (backend có thể lên sau).
 if wget -q -T 3 -O /dev/null "$BACKEND_URL/api/todos" 2>/dev/null; then
