@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, create_engine, func
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, create_engine, func, text
+from sqlalchemy.engine import URL
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
@@ -57,15 +58,49 @@ class TodoOut(BaseModel):
 
 def init_db(retries: int = 30, delay: float = 2.0) -> None:
     """Chờ MySQL sẵn sàng rồi tạo bảng (nếu chưa có)."""
+    # Kết nối vào server (chưa chọn database) để tạo DB_NAME nếu chưa có, vd. RDS mới tạo.
+    # (url.set(database=None) không xoá được database, nên dựng lại URL không có database.)
+    u = engine.url
+    server_url = URL.create(
+        drivername=u.drivername, username=u.username, password=u.password,
+        host=u.host, port=u.port, query=u.query,
+    )
+    server_engine = create_engine(server_url, pool_pre_ping=True)
     for attempt in range(1, retries + 1):
         try:
+            with server_engine.connect() as conn:
+                conn.execute(text(
+                    f"CREATE DATABASE IF NOT EXISTS `{DB_NAME}` "
+                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                ))
             Base.metadata.create_all(bind=engine)
             print("Đã kết nối MySQL.")
+            seed_data()
             return
         except OperationalError as exc:
             print(f"[{attempt}/{retries}] Chưa kết nối được MySQL: {exc.orig}")
             time.sleep(delay)
     raise RuntimeError("Không kết nối được MySQL, kiểm tra docker compose / biến môi trường.")
+
+
+# Dữ liệu mẫu, chỉ thêm khi bảng todos đang trống (lần đầu tạo CSDL).
+SEED_TODOS = [
+    ("Đẩy image frontend, backend lên Amazon ECR", True),
+    ("Tạo ALB và ECS service trên Fargate", True),
+    ("Kết nối backend với RDS MySQL", False),
+]
+
+
+def seed_data() -> None:
+    db = SessionLocal()
+    try:
+        if db.query(Todo).count() > 0:
+            return
+        db.add_all([Todo(title=title, done=done) for title, done in SEED_TODOS])
+        db.commit()
+        print(f"Đã thêm {len(SEED_TODOS)} dòng dữ liệu mẫu.")
+    finally:
+        db.close()
 
 
 init_db()
