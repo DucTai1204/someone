@@ -57,12 +57,14 @@ jobs:
         id: build
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
-          TAG: ${{ github.sha }}
+          # Tag tự tăng v1, v2, v3... theo số lần chạy workflow này.
+          TAG: v${{ github.run_number }}
         run: |
           IMAGE="$REGISTRY/$ECR_REPOSITORY"
-          # Tag theo commit SHA: mỗi lần deploy là 1 image riêng, ECS chắc chắn dùng bản mới.
-          docker build -t "$IMAGE:$TAG" -t "$IMAGE:latest" ./backend
+          # Mỗi lần deploy là 1 tag mới (vN) + tag commit SHA để biết image build từ commit nào.
+          docker build -t "$IMAGE:$TAG" -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" ./backend
           docker push "$IMAGE:$TAG"
+          docker push "$IMAGE:${{ github.sha }}"
           docker push "$IMAGE:latest"
           echo "image=$IMAGE:$TAG" >> "$GITHUB_OUTPUT"
 
