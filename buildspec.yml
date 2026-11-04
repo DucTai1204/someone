@@ -1,0 +1,51 @@
+# CodeBuild: chạy pytest -> build 2 Docker image -> push ECR (tag = commit SHA)
+# -> xuất 2 file imagedefinitions cho 2 action Deploy (backend, frontend) của CodePipeline.
+#
+# Environment variables cần khai báo trong CodeBuild project (Plaintext):
+#   AWS_ACCOUNT_ID        828035972991
+#   ECR_REPO_BACKEND      bdu-be-ecr
+#   ECR_REPO_FRONTEND     bdu-fe-ecr
+#   CONTAINER_BACKEND     tên container trong task definition backend  (vd. Main)
+#   CONTAINER_FRONTEND    tên container trong task definition frontend (vd. Main)
+# Project phải bật "Privileged" (để chạy docker build).
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - pip install -q -r backend/requirements-dev.txt
+
+  pre_build:
+    commands:
+      - echo "== Test backend =="
+      - cd backend && SKIP_DB_INIT=1 python -m pytest -q tests && cd ..
+      - echo "== Đăng nhập ECR =="
+      - REGISTRY=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REGISTRY
+      - TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c1-7)
+      - TAG=${TAG:-manual}
+      - echo "Image tag = $TAG"
+
+  build:
+    commands:
+      - echo "== Build images =="
+      - docker build -t $REGISTRY/$ECR_REPO_BACKEND:$TAG -t $REGISTRY/$ECR_REPO_BACKEND:latest ./backend
+      - docker build -t $REGISTRY/$ECR_REPO_FRONTEND:$TAG -t $REGISTRY/$ECR_REPO_FRONTEND:latest ./frontend
+
+  post_build:
+    commands:
+      - echo "== Push images =="
+      - docker push $REGISTRY/$ECR_REPO_BACKEND:$TAG
+      - docker push $REGISTRY/$ECR_REPO_BACKEND:latest
+      - docker push $REGISTRY/$ECR_REPO_FRONTEND:$TAG
+      - docker push $REGISTRY/$ECR_REPO_FRONTEND:latest
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_BACKEND" "$REGISTRY/$ECR_REPO_BACKEND:$TAG" > imagedefinitions-backend.json
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_FRONTEND" "$REGISTRY/$ECR_REPO_FRONTEND:$TAG" > imagedefinitions-frontend.json
+      - cat imagedefinitions-backend.json imagedefinitions-frontend.json
+
+artifacts:
+  files:
+    - imagedefinitions-backend.json
+    - imagedefinitions-frontend.json

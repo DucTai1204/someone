@@ -103,7 +103,9 @@ def seed_data() -> None:
         db.close()
 
 
-init_db()
+# Khi chạy pytest trong CodeBuild không có MySQL: đặt SKIP_DB_INIT=1 để bỏ qua bước kết nối DB.
+if os.getenv("SKIP_DB_INIT") != "1":
+    init_db()
 
 app = FastAPI(title="Todo API")
 
